@@ -4,6 +4,7 @@ import Image from "next/image";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
+import axios from "axios";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +23,8 @@ const formSchema = z.object({
   fullName: z
     .string()
     .min(2, "Full name must be at least 2 characters.")
-    .max(50, "Full name must be at most 50 characters."),
+    .max(50, "Full name must be at most 50 characters.")
+    .optional(),
 
   email: z
     .string()
@@ -44,8 +46,38 @@ const AuthForm = ({ type }: { type: FormType }) => {
     },
   });
 
-  function onSubmit(data: FormValues) {
-    console.log(data);
+  async function onSubmit(data: FormValues) {
+    setIsLoading(true);
+    setErrorMessage("");
+
+    try {
+      if (type === "signup") {
+        const response = await axios.post("/api/auth/register", data);
+        // Redirect to OTP verification page
+        window.location.href = `/verify-otp?email=${data.email}`;
+      } else {
+        const response = await axios.post("/api/auth/signin", { email: data.email });
+
+        if (response.data.requiresVerification) {
+          // Redirect to OTP verification page
+          window.location.href = `/verify-otp?email=${response.data.email}`;
+        } else {
+          // Sign in successful - redirect to dashboard or home
+          console.log("Sign in successful:", response.data);
+          // TODO: Store user session and redirect to dashboard
+          alert("Sign in successful!");
+        }
+      }
+    } catch (error) {
+      console.error("Auth error:", error);
+      if (axios.isAxiosError(error)) {
+        setErrorMessage(error.response?.data?.msg || "Something went wrong");
+      } else {
+        setErrorMessage("Something went wrong. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
